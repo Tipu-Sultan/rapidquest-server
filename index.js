@@ -17,6 +17,11 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.json());
 
+app.get('/',(req,res)=>{
+
+    res.send("Hello Rapid!");
+})
+
 app.use('/api/upload', uploadRouter);
 app.use('/api/videos', videoRouter);
 
