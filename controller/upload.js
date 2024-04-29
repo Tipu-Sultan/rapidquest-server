@@ -1,7 +1,14 @@
 const Video = require("../models/video");
-const { storage } = require('../services/cloudStorage')
+const cloudinary = require('cloudinary').v2;
+require('dotenv').config();
 
-const bucket = storage.bucket('edunify');
+// Configure Cloudinary with your credentials
+cloudinary.config({
+    cloud_name: process.env.MY_CLOUD_NAME,
+    api_key: process.env.MY_API_KEY,
+    api_secret: process.env.MY_API_SECRET
+});
+
 
 async function uploadVideo(req, res) {
     try {
@@ -11,42 +18,41 @@ async function uploadVideo(req, res) {
 
         const { title, description } = req.body;
 
-        const newFile = new Video({
-            title,
-            description,
-            filename: req.file.originalname,
-            mimetype: req.file.mimetype,
-            originalname: req.file.originalname,
-            size: req.file.size,
-        });
 
-        await newFile.save();
-        const updatedVideos = await Video.find();
+        // Upload file buffer to Cloudinary
+        cloudinary.uploader.upload_stream({ resource_type: "video" }, async (error, result) => {
+            if (error) {
+                console.error('Error uploading file to Cloudinary:', error);
+                return res.status(500).json({ success: false, error: 'Error uploading file to Cloudinary.' });
+            }
 
-        const blob = bucket.file(req.file.originalname);
-        const blobStream = blob.createWriteStream();
-
-        blobStream.on('error', (err) => {
-            console.error('Error uploading file to Google Cloud Storage:', err);
-            res.status(500).json({ success: false, error: 'Error uploading file to Google Cloud Storage.' });
-        });
-
-        blobStream.on('finish', () => {
+            const newFile = new Video({
+                title,
+                description,
+                filename: req.file.originalname,
+                mimetype: req.file.mimetype,
+                originalname: req.file.originalname,
+                size: req.file.size,
+                public_url: result.secure_url
+            });
+    
+            await newFile.save();
+            const updatedVideos = await Video.find();
+            
+            // Cloudinary upload success
             res.status(201).json({
                 success: true,
                 message: 'File & Details added successfully',
                 videosData: updatedVideos,
+                cloudinary_data: result 
             });
-        });
+        }).end(req.file.buffer); // Pass the file buffer to upload_stream
 
-        blobStream.end(req.file.buffer);
     } catch (err) {
         console.error("Error saving file details to MongoDB:", err);
         return res.status(500).json({ message: "Error saving file details to MongoDB." });
     }
 }
-
-
 
 module.exports = {
     uploadVideo,

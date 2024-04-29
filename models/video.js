@@ -33,6 +33,10 @@ const VideoSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  public_url: {
+    type: String,
+    required: true,
+  },
   likes: {
     type: Number,
     default: 0,
